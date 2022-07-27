@@ -1,43 +1,90 @@
-#include "main.h"                                                                          
-                                                                                           
-/**                                                                                        
- * main - Entry point                                                                      
- *                                                                                         
- * Return: Always 0                                                                        
- */                                                                                        
-                                                                                           
-int main(void)                                                                             
-{                                                                                          
-        int len;                                                                           
-        int len2;                                                                          
-        unsigned int ui;                                                                   
-        void *addr;                                                                        
-                                                                                           
-        len = _printf("Let's try to printf a simple sentence.\n");                         
-        len2 = printf("Let's try to printf a simple sentence.\n");                         
-        ui = (unsigned int)INT_MAX + 1024;                                                 
-        addr = (void *)0x7ffe637541f0;                                                     
-        _printf("Length:[%d, %i]\n", len, len);                                            
-        printf("Length:[%d, %i]\n", len2, len2);                                           
-        _printf("Negative:[%d]\n", -762534);                                               
-        printf("Negative:[%d]\n", -762534);                                                
-        _printf("Unsigned:[%u]\n", ui);                                                    
-        printf("Unsigned:[%u]\n", ui);                                                     
-        _printf("Unsigned octal:[%o]\n", ui);                                              
-        printf("Unsigned octal:[%o]\n", ui);                                               
-        _printf("Unsigned hexadecimal:[%x, %X]\n", ui, ui);                                
-        printf("Unsigned hexadecimal:[%x, %X]\n", ui, ui);                                 
-        _printf("Character:[%c]\n", 'H');                                                  
-        printf("Character:[%c]\n", 'H');                                                   
-        _printf("String:[%s]\n", "I am a string !");                                       
-        printf("String:[%s]\n", "I am a string !");                                        
-        _printf("Address:[%p]\n", addr);                                                   
-        printf("Address:[%p]\n", addr);                                                    
-        len = _printf("Percent:[%%]\n");                                                   
-        len = printf("Percent:[%%]\n");                                                    
-        _printf("Len:[%d]\n", len);                                                        
-        printf("Len:[%d]\n", len2);                                                        
-        _printf("Unknown:[%r]\n");                                                         
-        printf("Unknown:[int]\n");                                                         
-        return (0);
+ #include "holberton.h"
+
+void cleanup(va_list args, buffer_t *output);
+int run_printf(const char *format, va_list args, buffer_t *output);
+int _printf(const char *format, ...);
+
+/**
+ * cleanup - Peforms cleanup operations for _printf.
+ * @args: A va_list of arguments provided to _printf.
+ * @output: A buffer_t struct.
+ */
+void cleanup(va_list args, buffer_t *output)
+{
+	va_end(args);
+	write(1, output->start, output->len);
+	free_buffer(output);
+}
+
+/**
+ * run_printf - Reads through the format string for _printf.
+ * @format: Character string to print - may contain directives.
+ * @output: A buffer_t struct containing a buffer.
+ * @args: A va_list of arguments.
+ *
+ * Return: The number of characters stored to output.
+ */
+int run_printf(const char *format, va_list args, buffer_t *output)
+{
+	int i, wid, prec, ret = 0;
+	char tmp;
+	unsigned char flags, len;
+	unsigned int (*f)(va_list, buffer_t *,
+			unsigned char, int, int, unsigned char);
+
+	for (i = 0; *(format + i); i++)
+	{
+		len = 0;
+		if (*(format + i) == '%')
+		{
+			tmp = 0;
+			flags = handle_flags(format + i + 1, &tmp);
+			wid = handle_width(args, format + i + tmp + 1, &tmp);
+			prec = handle_precision(args, format + i + tmp + 1,
+					&tmp);
+			len = handle_length(format + i + tmp + 1, &tmp);
+
+			f = handle_specifiers(format + i + tmp + 1);
+			if (f != NULL)
+			{
+				i += tmp + 1;
+				ret += f(args, output, flags, wid, prec, len);
+				continue;
+			}
+			else if (*(format + i + tmp + 1) == '\0')
+			{
+				ret = -1;
+				break;
+			}
+		}
+		ret += _memcpy(output, (format + i), 1);
+		i += (len != 0) ? 1 : 0;
+	}
+	cleanup(args, output);
+	return (ret);
+}
+
+/**
+ * _printf - Outputs a formatted string.
+ * @format: Character string to print - may contain directives.
+ *
+ * Return: The number of characters printed.
+ */
+int _printf(const char *format, ...)
+{
+	buffer_t *output;
+	va_list args;
+	int ret;
+
+	if (format == NULL)
+		return (-1);
+	output = init_buffer();
+	if (output == NULL)
+		return (-1);
+
+	va_start(args, format);
+
+	ret = run_printf(format, args, output);
+
+	return (ret);
 }
